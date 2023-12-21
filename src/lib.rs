@@ -5,7 +5,7 @@ use std::{
     mem::offset_of,
     ops::{Deref, DerefMut},
     pin::Pin,
-    ptr::NonNull,
+    ptr::{self, NonNull},
 };
 
 /// Owned cell for data.
@@ -174,7 +174,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get());
             let next = this.next.unwrap();
-            if next.as_ptr() as *const ListHead<T> == self as *const ListHead<T> {
+            if ptr::eq(next.as_ptr(), self) {
                 break;
             }
             this = unsafe { next.as_ref() };
@@ -190,7 +190,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get_mut());
             let mut next = this.next.unwrap();
-            if next.as_ptr() as *const ListHead<T> == self as *const ListHead<T> {
+            if ptr::eq(next.as_ptr(), self) {
                 break;
             }
             this = unsafe { next.as_mut() };
@@ -206,7 +206,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get());
             let prev = this.prev.unwrap();
-            if prev.as_ptr() as *const ListHead<T> == self as *const ListHead<T> {
+            if ptr::eq(prev.as_ptr(), self) {
                 break;
             }
             this = unsafe { prev.as_ref() };
@@ -222,7 +222,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get_mut());
             let mut prev = this.prev.unwrap();
-            if prev.as_ptr() as *const ListHead<T> == self as *const ListHead<T> {
+            if ptr::eq(prev.as_ptr(), self) {
                 break;
             }
             this = unsafe { prev.as_mut() };
