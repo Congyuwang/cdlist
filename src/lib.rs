@@ -241,12 +241,12 @@ impl<T> ListHead<T> {
 
     #[inline(always)]
     unsafe fn inner(&self) -> &Inner<T> {
-        &*((self as *const Self as *const char).offset(Self::offset()) as *const Inner<T>)
+        &*((self as *const Self).byte_offset(Self::offset()) as *const Inner<T>)
     }
 
     #[inline(always)]
     unsafe fn inner_mut(&mut self) -> &mut Inner<T> {
-        &mut *((self as *mut Self as *mut char).offset(Self::offset()) as *mut Inner<T>)
+        &mut *((self as *mut Self).byte_offset(Self::offset()) as *mut Inner<T>)
     }
 
     #[inline(always)]
