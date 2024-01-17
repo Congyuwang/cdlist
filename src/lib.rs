@@ -2,7 +2,7 @@
 #![feature(inline_const)]
 use std::{
     marker::PhantomData,
-    mem::offset_of,
+    mem::{offset_of, MaybeUninit},
     ops::{Deref, DerefMut},
     pin::Pin,
     ptr::{self, NonNull},
@@ -21,8 +21,8 @@ struct Inner<T> {
 
 /// Intrusive link.
 struct ListHead<T> {
-    prev: Option<NonNull<ListHead<T>>>,
-    next: Option<NonNull<ListHead<T>>>,
+    prev: MaybeUninit<NonNull<ListHead<T>>>,
+    next: MaybeUninit<NonNull<ListHead<T>>>,
     dtype: PhantomData<T>,
 }
 
@@ -32,12 +32,14 @@ impl<T> LinkNode<T> {
         let mut node = Self(Box::pin(Inner {
             data,
             list: ListHead {
-                prev: None,
-                next: None,
+                prev: MaybeUninit::uninit(),
+                next: MaybeUninit::uninit(),
                 dtype: PhantomData,
             },
         }));
-        node.list_mut().init_head();
+        unsafe {
+            node.list_mut().init_head();
+        }
         node
     }
 
@@ -61,8 +63,10 @@ impl<T> LinkNode<T> {
     #[inline]
     pub fn take(&mut self) {
         let list = self.list_mut();
-        unsafe { list.delist() };
-        list.init_head();
+        unsafe {
+            list.delist();
+            list.init_head();
+        }
     }
 
     pub fn for_each<F>(&self, f: F)
@@ -126,12 +130,17 @@ impl<T> Drop for LinkNode<T> {
 }
 
 impl<T> ListHead<T> {
+    #[inline(always)]
+    unsafe fn ptr(&mut self) -> NonNull<ListHead<T>> {
+        NonNull::new_unchecked(self as *mut ListHead<T>)
+    }
+
     /// Called when node is created.
     #[inline(always)]
-    fn init_head(&mut self) {
-        let list = NonNull::new(self as *mut ListHead<T>);
-        self.prev = list;
-        self.next = list;
+    unsafe fn init_head(&mut self) {
+        let self_ptr = self.ptr();
+        self.prev.write(self_ptr);
+        self.next.write(self_ptr);
     }
 
     /// Unlink the current node from its previous list.
@@ -144,10 +153,10 @@ impl<T> ListHead<T> {
     /// or in `add()` to update to `prev` and `next` pointers.
     #[inline(always)]
     unsafe fn delist(&mut self) {
-        let mut prev = self.prev.unwrap();
-        let mut next = self.next.unwrap();
-        prev.as_mut().next = Some(next);
-        next.as_mut().prev = Some(prev);
+        let mut prev = self.prev.assume_init();
+        let mut next = self.next.assume_init();
+        prev.as_mut().next.write(next);
+        next.as_mut().prev.write(prev);
     }
 
     /// Add `other` between `self` and `self.next`.
@@ -159,10 +168,12 @@ impl<T> ListHead<T> {
     /// is still complete.
     #[inline(always)]
     unsafe fn add(&mut self, other: &mut ListHead<T>) {
-        other.prev = NonNull::new(self as *mut ListHead<T>);
+        other.prev.write(self.ptr());
         other.next = self.next;
-        self.next.unwrap().as_mut().prev = NonNull::new(other as *mut ListHead<T>);
-        self.next = NonNull::new(other as *mut ListHead<T>);
+
+        let next = self.next.assume_init_mut().as_mut();
+        next.prev.write(other.ptr());
+        self.next.write(other.ptr());
     }
 
     #[inline(always)]
@@ -170,11 +181,12 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&T),
     {
+        let self_ptr = self as *const Self;
         let mut this = self;
         loop {
             f(this.get());
-            let next = this.next.unwrap();
-            if ptr::eq(next.as_ptr(), self) {
+            let next = unsafe { this.next.assume_init_ref() };
+            if ptr::eq(next.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { next.as_ref() };
@@ -186,11 +198,12 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&mut T),
     {
+        let self_ptr = self as *const Self;
         let mut this = &mut *self;
         loop {
             f(this.get_mut());
-            let mut next = this.next.unwrap();
-            if ptr::eq(next.as_ptr(), self) {
+            let next = unsafe { this.next.assume_init_mut() };
+            if ptr::eq(next.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { next.as_mut() };
@@ -202,11 +215,12 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&T),
     {
+        let self_ptr = self as *const Self;
         let mut this = self;
         loop {
             f(this.get());
-            let prev = this.prev.unwrap();
-            if ptr::eq(prev.as_ptr(), self) {
+            let prev = unsafe { this.prev.assume_init_ref() };
+            if ptr::eq(prev.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { prev.as_ref() };
@@ -218,11 +232,12 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&mut T),
     {
+        let self_ptr = self as *const Self;
         let mut this = &mut *self;
         loop {
             f(this.get_mut());
-            let mut prev = this.prev.unwrap();
-            if ptr::eq(prev.as_ptr(), self) {
+            let prev = unsafe { this.prev.assume_init_mut() };
+            if ptr::eq(prev.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { prev.as_mut() };
