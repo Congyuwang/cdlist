@@ -44,8 +44,8 @@ impl<T> LinkNode<T> {
     /// Pop `other` from its list and add it to `self` list.
     #[inline]
     pub fn add(&mut self, other: &mut LinkNode<T>) {
-        let other_list = other.list_mut();
         let self_list = self.list_mut();
+        let other_list = other.list_mut();
         unsafe {
             other_list.delist();
             self_list.add(other_list);
@@ -183,7 +183,7 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&T),
     {
-        let self_ptr = self as *const Self;
+        let self_ptr = ptr::from_ref(self);
         let mut this = self;
         loop {
             f(this.get());
@@ -200,8 +200,8 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&mut T),
     {
-        let self_ptr = self as *const Self;
-        let mut this = &mut *self;
+        let self_ptr = ptr::from_ref(self);
+        let mut this = self;
         loop {
             f(this.get_mut());
             let next = unsafe { this.next.assume_init_mut() };
@@ -217,7 +217,7 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&T),
     {
-        let self_ptr = self as *const Self;
+        let self_ptr = ptr::from_ref(self);
         let mut this = self;
         loop {
             f(this.get());
@@ -234,8 +234,8 @@ impl<T> ListHead<T> {
     where
         F: FnMut(&mut T),
     {
-        let self_ptr = self as *const Self;
-        let mut this = &mut *self;
+        let self_ptr = ptr::from_ref(self);
+        let mut this = self;
         loop {
             f(this.get_mut());
             let prev = unsafe { this.prev.assume_init_mut() };
@@ -248,22 +248,26 @@ impl<T> ListHead<T> {
 
     #[inline(always)]
     fn get(&self) -> &T {
-        &unsafe { self.inner() }.data
+        unsafe { &self.inner().data }
     }
 
     #[inline(always)]
     fn get_mut(&mut self) -> &mut T {
-        &mut unsafe { self.inner_mut() }.data
+        unsafe { &mut self.inner_mut().data }
     }
 
     #[inline(always)]
     unsafe fn inner(&self) -> &Inner<T> {
-        &*((self as *const Self).byte_offset(Self::offset()) as *const Inner<T>)
+        &*(ptr::from_ref(self)
+            .byte_offset(Self::offset())
+            .cast::<Inner<T>>())
     }
 
     #[inline(always)]
     unsafe fn inner_mut(&mut self) -> &mut Inner<T> {
-        &mut *((self as *mut Self).byte_offset(Self::offset()) as *mut Inner<T>)
+        &mut *(ptr::from_mut(self)
+            .byte_offset(Self::offset())
+            .cast::<Inner<T>>())
     }
 
     #[inline(always)]
