@@ -1,5 +1,3 @@
-#![feature(offset_of)]
-#![feature(inline_const)]
 use std::{
     marker::PhantomData,
     mem::{offset_of, MaybeUninit},
@@ -132,7 +130,7 @@ impl<T> Drop for LinkNode<T> {
 impl<T> ListHead<T> {
     #[inline(always)]
     unsafe fn ptr(&mut self) -> NonNull<ListHead<T>> {
-        NonNull::new_unchecked(self as *mut ListHead<T>)
+        NonNull::from(self)
     }
 
     /// Called when node is created.
@@ -266,6 +264,6 @@ impl<T> ListHead<T> {
 
     #[inline(always)]
     const fn offset() -> isize {
-        const { -(offset_of!(Inner<T>, list) as isize) }
+        -(offset_of!(Inner<T>, list) as isize)
     }
 }
