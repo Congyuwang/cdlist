@@ -7,6 +7,28 @@ use std::{
 };
 
 /// Owned cell for data.
+///
+/// The data structure is not thread safe.
+/// It is not even safe to move to another thread.
+/// (i.e., !Send).
+/// ```compile_fail,E0277
+/// use cdlist::LinkNode;
+/// use std::sync::atomic::AtomicUsize;
+///
+/// fn impl_send<T: Send>(val: T) {}
+/// /// should not compile
+/// impl_send(LinkNode::new(AtomicUsize::new(0)));
+/// ```
+///
+/// Nor sync:
+/// ```compile_fail,E0277
+/// use cdlist::LinkNode;
+/// use std::sync::atomic::AtomicUsize;
+///
+/// fn impl_sync<T: Sync>(val: T) {}
+/// /// should not compile
+/// impl_sync(LinkNode::new(AtomicUsize::new(0)));
+/// ```
 pub struct LinkNode<T>(Pin<Box<Inner<T>>>);
 
 /// Pinned on heap for linking.
