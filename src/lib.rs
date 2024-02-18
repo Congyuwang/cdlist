@@ -45,9 +45,10 @@ impl<T> LinkNode<T> {
     #[inline]
     pub fn add(&mut self, other: &mut LinkNode<T>) {
         let other_list = other.list_mut();
+        let self_list = self.list_mut();
         unsafe {
             other_list.delist();
-            self.list_mut().add(other_list);
+            self_list.add(other_list);
         }
     }
 
@@ -166,11 +167,13 @@ impl<T> ListHead<T> {
     /// is still complete.
     #[inline(always)]
     unsafe fn add(&mut self, other: &mut ListHead<T>) {
-        let next = self.next.assume_init_mut().as_mut();
+        let self_ptr = self.ptr();
         let other_ptr = other.ptr();
+        let next_ptr = self.next.assume_init();
+        let next = self.next.assume_init_mut().as_mut();
 
-        other.prev.write(self.ptr());
-        other.next = self.next;
+        other.prev.write(self_ptr);
+        other.next.write(next_ptr);
         next.prev.write(other_ptr);
         self.next.write(other_ptr);
     }
