@@ -166,12 +166,13 @@ impl<T> ListHead<T> {
     /// is still complete.
     #[inline(always)]
     unsafe fn add(&mut self, other: &mut ListHead<T>) {
+        let next = self.next.assume_init_mut().as_mut();
+        let other_ptr = other.ptr();
+
         other.prev.write(self.ptr());
         other.next = self.next;
-
-        let next = self.next.assume_init_mut().as_mut();
-        next.prev.write(other.ptr());
-        self.next.write(other.ptr());
+        next.prev.write(other_ptr);
+        self.next.write(other_ptr);
     }
 
     #[inline(always)]
