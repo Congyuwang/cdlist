@@ -8,7 +8,6 @@ Let the elements hold the ownership, instead of the collection.
 See tests as examples.
 
 ```rust
-#![feature(get_many_mut)]
 use cdlist::LinkNode;
 
 #[test]
@@ -119,9 +118,9 @@ fn collect_rev<T: Copy>(node: &LinkNode<T>) -> Vec<T> {
 }
 
 fn connect_all<T>(nodes: &mut [LinkNode<T>], start: usize, end: usize) {
-    (start..(end - 1)).zip((start + 1)..end).for_each(|(i, j)| {
-        let [ni, nj] = nodes.get_many_mut([i, j]).unwrap();
-        ni.add(nj);
-    });
+    for i in start..(end - 1) {
+        let (ni, nj) = nodes[i..].split_at_mut(1);
+        ni[0].add(&mut nj[0])
+    }
 }
 ```
