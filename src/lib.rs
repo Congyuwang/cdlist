@@ -210,7 +210,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get());
             let next = unsafe { this.next.assume_init_ref() };
-            if ptr::eq(next.as_ptr(), self_ptr) {
+            if ptr::addr_eq(next.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { next.as_ref() };
@@ -227,7 +227,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get_mut());
             let next = unsafe { this.next.assume_init_mut() };
-            if ptr::eq(next.as_ptr(), self_ptr) {
+            if ptr::addr_eq(next.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { next.as_mut() };
@@ -244,7 +244,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get());
             let prev = unsafe { this.prev.assume_init_ref() };
-            if ptr::eq(prev.as_ptr(), self_ptr) {
+            if ptr::addr_eq(prev.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { prev.as_ref() };
@@ -261,7 +261,7 @@ impl<T> ListHead<T> {
         loop {
             f(this.get_mut());
             let prev = unsafe { this.prev.assume_init_mut() };
-            if ptr::eq(prev.as_ptr(), self_ptr) {
+            if ptr::addr_eq(prev.as_ptr(), self_ptr) {
                 break;
             }
             this = unsafe { prev.as_mut() };
