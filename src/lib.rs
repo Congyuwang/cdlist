@@ -1,3 +1,4 @@
+#![feature(inline_const)]
 use std::{
     marker::PhantomData,
     mem::{offset_of, MaybeUninit},
@@ -281,14 +282,14 @@ impl<T> ListHead<T> {
     #[inline(always)]
     unsafe fn inner(&self) -> &Inner<T> {
         &*(ptr::from_ref(self)
-            .byte_offset(Self::offset())
+            .byte_offset(const { Self::offset() })
             .cast::<Inner<T>>())
     }
 
     #[inline(always)]
     unsafe fn inner_mut(&mut self) -> &mut Inner<T> {
         &mut *(ptr::from_mut(self)
-            .byte_offset(Self::offset())
+            .byte_offset(const { Self::offset() })
             .cast::<Inner<T>>())
     }
 
