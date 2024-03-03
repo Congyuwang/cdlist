@@ -292,6 +292,8 @@ impl<T> ListHead<T> {
             .cast::<Inner<T>>())
     }
 
+    /// The compiler will compile this into an inlined constant
+    /// even without inline const feature.
     #[inline(always)]
     const fn offset() -> isize {
         -(offset_of!(Inner<T>, list) as isize)
