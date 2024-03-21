@@ -1,3 +1,13 @@
+//! This Rust module provides a data structure for creating
+//! and managing a non-thread-safe doubly-linked list.
+//! The core of the module is the `LinkNode<T>` struct,
+//! which represents a node in the linked list.
+//! Each `LinkNode<T>` contains user-defined data and links to
+//! the previous and next nodes in the list.
+//!
+//! The list is intrusive, meaning that the linked list pointers
+//! are stored within the data structure itself, rather than in
+//! separate nodes that contain the data as payload.
 use std::{
     marker::PhantomData,
     mem::{offset_of, MaybeUninit},
@@ -6,7 +16,12 @@ use std::{
     ptr::{self, NonNull},
 };
 
-/// Owned cell for data.
+/// Represents a node in a doubly-linked list.
+/// Contains user data of type `T` and links to the previous
+/// and next nodes in the list.
+///
+/// It is designed to be self-referential and is pinned on the heap
+/// to ensure its memory safety.
 ///
 /// The data structure is not thread safe.
 /// It is not even safe to move to another thread.
@@ -33,6 +48,11 @@ use std::{
 /// ```
 pub struct LinkNode<T>(Pin<Box<Inner<T>>>);
 
+/// A private struct used by `LinkNode` to hold
+/// the user data and the links to the next and previous
+/// nodes in the list. This struct is not exposed outside
+/// the module.
+///
 /// Pinned on heap for linking.
 ///
 /// T can be !Unpin.
@@ -41,7 +61,8 @@ struct Inner<T> {
     list: ListHead<T>,
 }
 
-/// Intrusive link.
+/// A private struct that represents the head of the linked list.
+/// It contains "prev" and "next" links that may be uninitialized.
 struct ListHead<T> {
     prev: MaybeUninit<NonNull<ListHead<T>>>,
     next: MaybeUninit<NonNull<ListHead<T>>>,
@@ -49,6 +70,9 @@ struct ListHead<T> {
 }
 
 impl<T> LinkNode<T> {
+    /// Creates a new `LinkNode` with the provided user data.
+    /// Initializes the node as a standalone element,
+    /// effectively creating a new list.
     #[inline]
     pub fn new(data: T) -> Self {
         let mut node = Self(Box::pin(Inner {
@@ -65,7 +89,8 @@ impl<T> LinkNode<T> {
         node
     }
 
-    /// Pop `other` from its list and add it to `self` list.
+    /// Removes `other` from its current position in its list
+    /// and inserts it after `self` in the current list.
     #[inline]
     pub fn add(&mut self, other: &mut LinkNode<T>) {
         let self_list = self.list_mut();
@@ -76,13 +101,15 @@ impl<T> LinkNode<T> {
         }
     }
 
-    /// Add `self` to `other` list.
+    /// Adds `self` to the list of `other`.
+    /// It's a convenience method that effectively calls `other.add(self)`.
     #[inline]
     pub fn add_to(&mut self, other: &mut LinkNode<T>) {
         other.add(self)
     }
 
-    /// Pop `self` from its current list.
+    /// Removes `self` from its current list,
+    /// turning it into a standalone element.
     #[inline]
     pub fn take(&mut self) {
         let list = self.list_mut();
@@ -92,6 +119,9 @@ impl<T> LinkNode<T> {
         }
     }
 
+    /// Iterates over each element in the list starting from `self`
+    /// and applies function `f` to an immutable reference
+    /// to each element's data.
     pub fn for_each<F>(&self, f: F)
     where
         F: FnMut(&T),
@@ -99,6 +129,9 @@ impl<T> LinkNode<T> {
         self.list().for_each(f)
     }
 
+    /// Iterates over each element in the list starting from `self`
+    /// and applies function `f` to a mutable reference
+    /// to each element's data.
     pub fn for_each_mut<F>(&mut self, f: F)
     where
         F: FnMut(&mut T),
@@ -106,6 +139,9 @@ impl<T> LinkNode<T> {
         self.list_mut().for_each_mut(f)
     }
 
+    /// Iterates over each element in the list starting from `self`
+    /// in reverse order and applies function `f` to an immutable reference
+    /// to each element's data.
     pub fn for_each_rev<F>(&self, f: F)
     where
         F: FnMut(&T),
@@ -113,6 +149,9 @@ impl<T> LinkNode<T> {
         self.list().for_each_rev(f)
     }
 
+    /// Iterates over each element in the list starting from `self`
+    /// in reverse order and applies function `f` to a mutable reference
+    /// to each element's data.
     pub fn for_each_mut_rev<F>(&mut self, f: F)
     where
         F: FnMut(&mut T),
@@ -158,7 +197,8 @@ impl<T> ListHead<T> {
         NonNull::from(self)
     }
 
-    /// Called when node is created.
+    /// Initializes the list head, setting the previous and
+    /// next pointers to point to itself, effectively creating an empty list.
     #[inline(always)]
     unsafe fn init_head(&mut self) {
         let self_ptr = self.ptr();
@@ -166,14 +206,11 @@ impl<T> ListHead<T> {
         self.next.write(self_ptr);
     }
 
-    /// Unlink the current node from its previous list.
-    ///
-    /// This is an incomplete operation:
-    ///
-    /// After this operation, the `prev` and `next` pointers
-    /// still points to previous linked list.
-    /// Thus, `delist()` should only be used in `drop()`
-    /// or in `add()` to update to `prev` and `next` pointers.
+    /// Removes the current node from its list by updating the
+    /// previous and next nodes to point to each other.
+    /// This method leaves the current node in an inconsistent state
+    /// and should be followed by reinsertion into a list using `add` or
+    /// resetting the pointers using `init_head`.
     #[inline(always)]
     unsafe fn delist(&mut self) {
         let mut prev = self.prev.assume_init();
@@ -182,13 +219,8 @@ impl<T> ListHead<T> {
         next.as_mut().prev.write(prev);
     }
 
-    /// Add `other` between `self` and `self.next`.
-    ///
-    /// This is an incomplete operation:
-    ///
-    /// We assume that other has been `delist()` from
-    /// its previous chain, so that its previous chain
-    /// is still complete.
+    /// Inserts `other` between `self` and the node currently following `self`.
+    /// Assumes `other` is not part of any list.
     #[inline(always)]
     unsafe fn add(&mut self, other: &mut ListHead<T>) {
         let self_ptr = self.ptr();
@@ -270,11 +302,15 @@ impl<T> ListHead<T> {
         }
     }
 
+    /// Returns an immutable reference to the data contained in the
+    /// `Inner<T>` struct associated with `self`.
     #[inline(always)]
     fn get(&self) -> &T {
         unsafe { &self.inner().data }
     }
 
+    /// Returns a mutable reference to the data contained in the
+    /// `Inner<T>` struct associated with `self`.
     #[inline(always)]
     fn get_mut(&mut self) -> &mut T {
         unsafe { &mut self.inner_mut().data }
