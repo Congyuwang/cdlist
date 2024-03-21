@@ -2,31 +2,30 @@ name: Tests
 
 on:
   push:
-    branches: [ "master" ]
+    branches: ["master"]
   pull_request:
-    branches: [ "master" ]
+    branches: ["master"]
 
 env:
   CARGO_TERM_COLOR: always
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v3
-    - name: rust-toolchain
-      uses: actions-rs/toolchain@v1
-      with:
-          toolchain: nightly
+      - uses: actions/checkout@v3
+      - name: rust-toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
           profile: minimal
           components: rustfmt, clippy
-    - name: Format check
-      run: cargo fmt --check
-    - name: Clippy
-      run: cargo clippy -- -D warnings
-    - name: Build
-      run: cargo build --verbose --release
-    - name: Run tests
-      run: cargo test --release
+      - name: Format check
+        run: cargo fmt --check
+      - name: Clippy
+        run: cargo clippy -- -D warnings
+      - name: Build
+        run: cargo build --verbose --release
+      - name: Run tests
+        run: cargo test --release

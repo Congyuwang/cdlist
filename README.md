@@ -1,5 +1,9 @@
 # Intrusive Circular Linked List in Rust
 
+## Minimal Supported Rust Version (MSRV)
+
+v1.77.0 since it requires `offset_of!` macro which is stablized in v1.77.0.
+
 ## Introduction
 
 The `cdlist` crate implements a non-thread-safe, intrusive, doubly-linked list in Rust. Its primary characteristic is the inclusion of link pointers within the data structures themselves, rather than in separate node wrappers. This approach enhances memory and performance efficiency but requires careful handling of ownership and safety, which this crate has taken care of.
