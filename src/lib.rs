@@ -8,6 +8,7 @@
 //! The list is intrusive, meaning that the linked list pointers
 //! are stored within the data structure itself, rather than in
 //! separate nodes that contain the data as payload.
+use pin_project_lite::pin_project;
 use std::{
     marker::PhantomData,
     mem::{offset_of, MaybeUninit},
@@ -48,17 +49,19 @@ use std::{
 /// ```
 pub struct LinkNode<T>(Pin<Box<Inner<T>>>);
 
-/// A private struct used by `LinkNode` to hold
-/// the user data and the links to the next and previous
-/// nodes in the list. This struct is not exposed outside
-/// the module.
-///
-/// Pinned on heap for linking.
-///
-/// T can be !Unpin.
-struct Inner<T> {
-    data: T,
-    list: ListHead<T>,
+pin_project! {
+    /// A private struct used by `LinkNode` to hold
+    /// the user data and the links to the next and previous
+    /// nodes in the list. This struct is not exposed outside
+    /// the module.
+    ///
+    /// Pinned on heap for linking.
+    ///
+    /// T can be !Unpin.
+    struct Inner<T> {
+        data: T,
+        list: ListHead<T>,
+    }
 }
 
 /// A private struct that represents the head of the linked list.
@@ -166,14 +169,14 @@ impl<T> LinkNode<T> {
 
     #[inline(always)]
     fn list_mut(&mut self) -> &mut ListHead<T> {
-        unsafe { &mut self.0.as_mut().get_unchecked_mut().list }
+        self.0.as_mut().project().list
     }
 }
 
 impl<T> DerefMut for LinkNode<T> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
-        unsafe { &mut self.0.as_mut().get_unchecked_mut().data }
+        self.0.as_mut().project().data
     }
 }
 
