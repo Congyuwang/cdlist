@@ -7,4 +7,4 @@ edition = "2021"
 name = "cdlist"
 
 [dependencies]
-pin-project-lite = "0.2"
+pin-project = "1"
